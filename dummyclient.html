@@ -2,8 +2,15 @@
 <html>
     <body>
         <h1>Dummy fimme client</h1>
-        <p id="client-id"></p>
-        <p id="client-gps"></p>
+        <p>ID: <span id="client-id"></span></p>
+        <p>
+            LAT: <span id="client-lat"></span>
+            LON: <span id="client-lon"></span>
+            ALT: <span id="client-alt"></span>
+        </p>
+        <h2>Available clients</h2>
+        <ul id="clients"></ul>
+        <button id="clientsButton">Update</button>
         <script src="dummyclient.js"></script>
     </body>
 </html> 

@@ -16,13 +16,21 @@ function connect()
     var ws = new WebSocket("ws://localhost:3000");
     var timer;
 
+    function sendMessage(channel, data)
+    {
+        var msg = { id: id, channel: channel, data: data };
+        ws.send(JSON.stringify(msg));
+    }
+
     function tick() 
     {
-        document.getElementById("client-id").innerText = "ID: " + id;
-        document.getElementById("client-gps").innerText = "LAT: " + lat + " LON: " + lon + " ALT: " + alt;
+        document.getElementById("client-id").innerText = id;
+        document.getElementById("client-lat").innerText = lat;
+        document.getElementById("client-lon").innerText = lon;
+        document.getElementById("client-alt").innerText = alt;
         
-        var message = {id: id, lat: lat, lon: lon, alt: alt};
-        ws.send(JSON.stringify(message));
+        var msg = { lat: lat, lon: lon, alt: alt };
+        sendMessage("geo-update", msg);
 
         lat += Math.floor(Math.random() * 5) - 2;
         lon += Math.floor(Math.random() * 5) - 2;
@@ -36,8 +44,36 @@ function connect()
     };
   
     ws.onmessage = function(e)
-    { 
-        console.log('Message:', e.data);
+    {
+        var msg = JSON.parse(e.data);
+
+        switch (msg.channel)
+        {
+            case "clients-list":
+                clients = msg.data;
+                document.getElementById("clients").innerHTML = "";
+                clients.forEach(item => {
+                    if (item != id)
+                    {
+                        var node = document.createElement("li");
+                        node.innerText = item;
+                        node.addEventListener("click", function()
+                        {
+                            sendMessage("request-connection", item);
+                        });
+                        document.getElementById("clients").appendChild(node);
+                    }
+                });
+                break;
+            
+            case "connection-requested":
+                console.log("Connection requested by " + msg.data);
+                break;
+
+            case "connection-unavailable":
+                console.log("Connection unavailable: " + msg.data);
+                break;
+        }
     };
   
     ws.onclose = function(e)
@@ -46,10 +82,16 @@ function connect()
         console.log("Disconnected. Trying to reconnect...", e.reason);
         setTimeout(connect, 1000);
     };
+
+    document.getElementById("clientsButton").addEventListener("click", function()
+    {
+        sendMessage("request-clients", "");
+    });    
 }
 
 var id = uuidv4();
 var lat = Math.floor(Math.random() * 100) - 50;
 var lon = Math.floor(Math.random() * 100) - 50;
 var alt = Math.floor(Math.random() * 100) - 50;
+var clients = [];
 connect();
