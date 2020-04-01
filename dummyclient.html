@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
     <body>
+
         <h1>Dummy fimme client</h1>
         <p>ID: <span id="client-id"></span></p>
         <p>
@@ -8,9 +9,33 @@
             LON: <span id="client-lon"></span>
             ALT: <span id="client-alt"></span>
         </p>
-        <h2>Available clients</h2>
-        <ul id="clients"></ul>
-        <button id="clientsButton">Update</button>
+        <p>Server: <span id="server"></span></p>
+
+        <div id="clients" style="display: none">
+            <h2>Available clients</h2>
+            <ul id="clients-list"></ul>
+            <button id="clients-button">Update</button>
+        </div>
+
+        <div id="request" style="display: none">
+            <h2>Connection request</h2>
+            <p>ID: <span id="request-id"></span></p>
+            <button id="request-allow">Allow</button>
+            <button id="request-deny">Deny</button>
+        </div>
+
+        <div id="connection" style="display: none">
+            <h2>Connected client</h2>
+            <p>ID: <span id="connection-id"></span></p>
+            <p>
+                LAT: <span id="connection-lat"></span>
+                LON: <span id="connection-lon"></span>
+                ALT: <span id="connection-alt"></span>
+            </p>
+            <button id="connection-close">Disconnect</button>
+        </div>
+
         <script src="dummyclient.js"></script>
+
     </body>
 </html> 
