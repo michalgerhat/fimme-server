@@ -9,8 +9,11 @@ var connections = [];
 
 function sendMessage(ws, channel, data)
 {
-    var msg = { channel: channel, data: data };
-    ws.send(JSON.stringify(msg));
+    if (ws)
+    {
+        var msg = { channel: channel, data: data };
+        ws.send(JSON.stringify(msg));
+    }
 }
 
 function serveConnections()
@@ -90,8 +93,7 @@ app.ws('/', function(ws, req)
                 else
                 {
                     sendMessage(ws, "connection-denied", requester);
-                    if (sockets[requester])
-                        sendMessage(sockets[requester], "connection-denied", responder);
+                    sendMessage(sockets[requester], "connection-denied", responder);
                 }
                 break;
                 
@@ -102,7 +104,7 @@ app.ws('/', function(ws, req)
                 {
                     sendMessage(ws, "connection-denied", requester);
                     sendMessage(sockets[requester], "connection-denied", responder);
-                    delete requests[requester ];
+                    delete requests[requester];
                 }
                 break;
 
@@ -112,22 +114,16 @@ app.ws('/', function(ws, req)
                     sendMessage(ws, "connection-closed", msg.data);
                     clients[msg.id].connected = false;
                     delete connections[msg.id];
-                    if (sockets[msg.data])
-                    {
-                        sendMessage(sockets[msg.data], "connection-closed", msg.id);
-                        clients[msg.data].connected = false;
-                    }
+                    sendMessage(sockets[msg.data], "connection-closed", msg.id);
+                    clients[msg.data].connected = false;
                 }
                 else if (connections[msg.data] == msg.id)
                 {
                     sendMessage(ws, "connection-closed", msg.data);
                     clients[msg.id].connected = false;
                     delete connections[msg.data];
-                    if (sockets[msg.data])
-                    {
-                        sendMessage(sockets[msg.data], "connection-closed", msg.id);
-                        clients[msg.data].connected = false;
-                    }
+                    sendMessage(sockets[msg.data], "connection-closed", msg.id);
+                    clients[msg.data].connected = false;
                 }
                 break;
 
