@@ -1,6 +1,9 @@
 var express = require('express');
 var app = express();
 var expressWs = require('express-ws')(app);
+const fs = require('fs');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 var sockets = [];
 var clients = [];
@@ -55,6 +58,73 @@ app.ws('/', function(ws, req)
 
         switch (msg.channel)
         {
+            case "request-login":
+                fs.readFile("./users.json", (err, data) => {
+                    if (err)
+                    { 
+                        console.log(err);
+                        sendMessage(ws, "server-error", "");
+                    }
+                    else
+                    {
+                        var username = msg.data.username;
+                        var password = msg.data.password;
+                        var users = JSON.parse(data);
+                        bcrypt.compare(password, users[username], (err, result) => {
+                            if (err)
+                            { 
+                                console.log(err);
+                                sendMessage(ws, "server-error", "");
+                            }
+                            else
+                                if (result)
+                                    sendMessage(ws, "login-accepted", username);
+                                else
+                                    sendMessage(ws, "login-denied", username);
+                        });
+                    }
+                });
+                break;
+
+            case "request-register":
+                fs.readFile("./users.json", (err, data) => {
+                    if (err) 
+                        console.log(err);
+                    else
+                    {
+                        var username = msg.data.username;
+                        var password = msg.data.password;
+                        var users = JSON.parse(data);
+                        if (!users[username])
+                        {
+                            bcrypt.hash(password, saltRounds, (err, hash) => {
+                                if (err)
+                                { 
+                                    console.log(err);
+                                    sendMessage(ws, "server-error", "");
+                                }
+                                else
+                                {
+                                    users[username] = hash;
+                                    var data = JSON.stringify(users);
+                                    fs.writeFile("./users.json", data, (err) => {
+                                        if (err)
+                                        { 
+                                            console.log(err);
+                                            sendMessage(ws, "server-error", "");
+                                        }
+                                        else
+                                            sendMessage(ws, "register-accepted", username);
+                                    });
+                                }
+                            });
+                        }
+                        else
+                            sendMessage(ws, "register-denied", username);
+                    }
+                });
+                break;
+
             case "request-clients":
                 var msg = [];
                 for (var client in clients)

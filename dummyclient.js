@@ -56,6 +56,24 @@ function sendMessage(channel, data)
     ws.send(JSON.stringify(msg));
 }
 
+function requestLogin()
+{
+    setText("form-prompt", "");
+    var username = document.getElementById("username").value;
+    var password = document.getElementById("password").value;
+    var msg = { username: username, password: password };
+    sendMessage("request-login", msg);
+}
+
+function requestRegister()
+{
+    setText("form-prompt", "");
+    var username = document.getElementById("username").value;
+    var password = document.getElementById("password").value;
+    var msg = { username: username, password: password };
+    sendMessage("request-register", msg);
+}
+
 function sendGeo()
 { 
     var msg = { lat: lat, lon: lon, alt: alt };
@@ -107,8 +125,6 @@ function connect()
     {
         setText("server", "connected");
         setText("clients-list", "");
-        show("clients");
-        timer = setInterval(sendGeo, 2000);
     };
   
     ws.onmessage = function(e)
@@ -117,6 +133,27 @@ function connect()
 
         switch (msg.channel)
         {
+            case "login-accepted":
+                id = msg.data;
+                timer = setInterval(sendGeo, 2000);
+                setText("client-id", id);
+                hide("form");
+                show("status");
+                show("clients");
+                break;
+
+            case "login-denied":
+                setText("form-prompt", "Wrong credentials!");
+                break;
+
+            case "register-accepted":
+                setText("form-prompt", "Account " + msg.data + " created! You may now log in.");
+                break;
+
+            case "register-denied":
+                setText("form-prompt", "Username " + msg.data + " already taken.");
+                break;
+
             case "clients-list":
                 setText("clients-list", "");
                 clients = msg.data;
@@ -193,17 +230,15 @@ var requester = null;
 var connectedClient = null;
 
 var id = uuidv4();
-setText("client-id", id);
 
 var lat = Math.floor(Math.random() * 100) - 50;
 var lon = Math.floor(Math.random() * 100) - 50;
 var alt = Math.floor(Math.random() * 100) - 50;
-setText("client-lat", lat);
-setText("client-lon", lon);
-setText("client-alt", alt);
 setInterval(refreshGeo, 2000);
     
-clickListener("clients-button", requestClients); 
+clickListener("login", requestLogin); 
+clickListener("register", requestRegister);
+clickListener("clients-update", requestClients); 
 clickListener("request-allow", allowConnection);
 clickListener("request-deny", denyConnection);
 clickListener("connection-close", closeConnection);

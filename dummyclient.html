@@ -3,18 +3,29 @@
     <body>
 
         <h1>Dummy fimme client</h1>
-        <p>ID: <span id="client-id"></span></p>
-        <p>
-            LAT: <span id="client-lat"></span>
-            LON: <span id="client-lon"></span>
-            ALT: <span id="client-alt"></span>
-        </p>
         <p>Server: <span id="server"></span></p>
+
+        <div id="form">
+            Username: <input id="username" type="text"><br>
+            Password: <input id="password" type="text"><br>
+            <button id="login">Login</button>
+            <button id="register">Register</button><br>
+            <span id="form-prompt"></span>
+        </div>
+
+        <div id="status" style="display: none">
+            <p>ID: <span id="client-id"></span></p>
+            <p>
+                LAT: <span id="client-lat"></span>
+                LON: <span id="client-lon"></span>
+                ALT: <span id="client-alt"></span>
+            </p>
+        </div>
 
         <div id="clients" style="display: none">
             <h2>Available clients</h2>
             <ul id="clients-list"></ul>
-            <button id="clients-button">Update</button>
+            <button id="clients-update">Update</button>
         </div>
 
         <div id="request" style="display: none">
