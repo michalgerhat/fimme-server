@@ -125,6 +125,69 @@ app.ws('/', function(ws, req)
                 });
                 break;
 
+            case "add-friend":
+                fs.readFile("./friends.json", (err, data) => {
+                    if (err) 
+                        console.log(err);
+                    else
+                    {
+                        var friends = JSON.parse(data);
+                        if (friends[msg.id].includes(msg.data))
+                            sendMessage(ws, "already-friends", msg.data);
+                        else
+                            sendMessage(sockets[msg.data], "friends-requested", msg.id);
+                    }
+                })
+                break;
+
+            case "accept-friend":
+                fs.readFile("./friends.json", (err, data) => {
+                    if (err) 
+                        console.log(err);
+                    else
+                    {
+                        var friends = JSON.parse(data);
+                        if (!friends[msg.id].includes(msg.data))
+                        {
+                            friends[msg.id].push(msg.data);
+                            friends[msg.id].sort();
+                        }
+                        if (!friends[msg.data].includes(msg.id))
+                        {
+                            friends[msg.data].push(msg.id);
+                            friends[msg.data].sort();
+                        }
+                        sendMessage(sockets[msg.data], "friends-accepted", msg.id);
+                    }
+                })
+                break;
+
+            case "decline-friend":
+                sendMessage(sockets[msg.data], "friends-declined", msg.id);
+                break;
+            
+            case "remove-friend":
+                fs.readFile("./friends.json", (err, data) => {
+                if (err) 
+                    console.log(err);
+                else
+                {
+                    var friends = JSON.parse(data);
+                    var index = friends[msg.id].indexOf(msg.data);
+                    if (index > -1)
+                        friends[msg.id].splice(index, 1);
+
+                    index = friends[msg.data].indexOf(msg.id);
+                    if (index > -1)
+                        friends[msg.data].splice(index, 1);
+
+                    sendMessage(ws, "friends-removed", msg.data);
+                    sendMessage(sockets[msg.data], "friends-removed", msg.id);
+                }
+            })
+
+                break;
+
             case "request-clients":
                 var msg = [];
                 for (var client in clients)
