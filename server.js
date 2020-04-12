@@ -223,8 +223,8 @@ app.ws('/', function(ws, req)
                             if (err) 
                                 return console.error(err);
                             
-                            sendMessage(ws, "friends-request-cancelled", msg.data);
-                            sendMessage(sockets[msg.data], "friends-request-cancelled", msg.id);
+                            sendMessage(ws, "friend-request-cancelled", msg.data);
+                            sendMessage(sockets[msg.data], "friend-request-cancelled", msg.id);
                         }); 
                     }
                 });
@@ -251,18 +251,64 @@ app.ws('/', function(ws, req)
                         if (err) 
                             return console.error(err);
                         
-                        sendMessage(ws, "friend-removed", msg.data);
-                        sendMessage(sockets[msg.data], "friend-removed", msg.id);
+                        sendMessage(ws, "friends-removed", msg.data);
+                        sendMessage(sockets[msg.data], "friends-removed", msg.id);
                     });
                 });
                 break;
 
-            case "request-clients":
-                var msg = [];
-                for (var client in clients)
-                    if (!clients[client].connected)
-                        msg.push(client);
-                sendMessage(ws, "clients-list", msg);
+            case "get-friends-list":
+                var friendsList = [];
+                var requestsOutgoing = [];
+                var requestsIncoming = [];
+
+                fs.readFile("./friends.json", (err, data) =>
+                {
+                    if (err) 
+                        return console.error(err);
+                    
+                    var friends = JSON.parse(data);
+                    friends[msg.id].forEach((friend) =>
+                    {
+                        if (clients[friend] && clients[friend].connected == false)
+                            friendsList.push({ id: friend, available: true });
+                        else
+                            friendsList.push({ id: friend, available: false });
+                    });
+
+                    fs.readFile("./friend-requests.json", (err, data) => 
+                    {
+                        if (err) 
+                            return console.error(err);
+
+                        var friendRequests = JSON.parse(data);
+                        friendRequests.forEach((request) =>
+                        {
+                            if (request.requester == msg.id)
+                                requestsOutgoing.push(request.responder);
+                            else if (request.responder == msg.id)
+                                requestsIncoming.push(request.requester);
+                        });
+
+                        var res = { 
+                            friendsList: friendsList, 
+                            requestsOutgoing: requestsOutgoing, 
+                            requestsIncoming: requestsIncoming
+                        };
+                        sendMessage(ws, "friends-list", res);
+                    });
+                });
+                break;
+
+            case "get-friend-requests-Outgoing":
+                fs.readFile("./friend-requests.json", (err, data) =>
+                {
+                    if (err) 
+                        return console.error(err);
+                    
+                    var friendRequests = JSON.parse(data);
+                    sendMessage(ws, "friends-list", friends[msg.id]);
+                });
                 break;
 
             case "request-connection":
@@ -279,6 +325,11 @@ app.ws('/', function(ws, req)
                         sockets[responder] && clients[responder] && 
                         clients[responder].connected == false)
                     {
+                        if (requests[requester])
+                        {
+                            sendMessage(ws, "connection-request-cancelled", requests[requester]);
+                            sendMessage(sockets[requests[requester]], "connection-request-cancelled", requester);
+                        }
                         sendMessage(sockets[responder], "connection-requested", requester);
                         requests[requester] = responder;
                     }

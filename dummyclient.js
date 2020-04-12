@@ -24,12 +24,57 @@ function setText(id, text)
     document.getElementById(id).innerHTML = text;
 }
 
-function addListItem(idList, idItem, fun)
+function addListItem(idList, item)
 {
     var itemNode = document.createElement("li");
-    itemNode.setAttribute("id", idItem);
-    itemNode.innerText = idItem;
-    itemNode.addEventListener("click", fun);
+
+    switch(idList)
+    {
+        case "friends-list":
+            itemNode.innerText = item.id;
+            itemNode.setAttribute("id", item.id);
+
+            if (item.id == requested)
+                itemNode.innerText += " - connection requested";
+            else
+            {
+                var connectButton = document.createElement("button");
+                connectButton.innerText = "Connect";
+                if (item.available)
+                    connectButton.addEventListener("click", requestConnection.bind(this, item.id));
+                else
+                    connectButton.disabled = true;
+                
+                var removeButton = document.createElement("button");
+                removeButton.innerText = "Remove";
+                removeButton.addEventListener("click", removeFriend.bind(this, item.id));
+    
+                itemNode.appendChild(connectButton);
+                itemNode.appendChild(removeButton);
+            }
+            break;
+
+        case "friends-outgoing":
+            itemNode.innerText = item;
+            itemNode.innerText += " - click to cancel";
+            itemNode.addEventListener("click", cancelFriendRequest.bind(this, item));
+            break;
+
+        case "friends-incoming":
+            itemNode.innerText = item;
+
+            var acceptButton = document.createElement("button");
+            acceptButton.innerText = "Accept";
+            acceptButton.addEventListener("click", requestFriend.bind(this, item));
+            
+            var declineButton = document.createElement("button");
+            declineButton.innerText = "Decline";
+            declineButton.addEventListener("click", cancelFriendRequest.bind(this, item));
+
+            itemNode.appendChild(acceptButton);
+            itemNode.appendChild(declineButton);
+            break;
+    }
     document.getElementById(idList).appendChild(itemNode);
     itemNode = null;
 }
@@ -80,13 +125,35 @@ function sendGeo()
     sendMessage("geo-update", msg);
 }
 
-function requestClients()
+function getFriendsList()
 {
-    sendMessage("request-clients", "");
+    sendMessage("get-friends-list", "");
+}
+
+function addFriend()
+{
+    var responder = document.getElementById("friends-new").value;
+    sendMessage("request-friend", responder);
+}
+
+function requestFriend(responder)
+{
+    sendMessage("request-friend", responder);
+}
+
+function cancelFriendRequest(responder)
+{
+    sendMessage("cancel-friend-request", responder);
+}
+
+function removeFriend(responder)
+{
+    sendMessage("remove-friend", responder);
 }
 
 function requestConnection(responder)
 {
+    requested = responder;
     sendMessage("request-connection", responder);
     setText(responder, responder + " - connection requested");
 }
@@ -94,18 +161,11 @@ function requestConnection(responder)
 function allowConnection()
 {
     sendMessage("allow-connection", requester);
-    connectedClient = requester;
-    requester = null;
-    setText("connection-id", connectedClient);
-    show("connection");
-    hide("request");
-    hide("clients");
 }
 
 function denyConnection()
 {
     sendMessage("deny-connection", requester);
-    requester = null;
     hide("connection");
 }
 
@@ -124,7 +184,11 @@ function connect()
     ws.onopen = function() 
     {
         setText("server", "connected");
-        setText("clients-list", "");
+        setText("friends-list", "");
+        setText("friends-outgoing", "");
+        setText("friends-incoming", "");
+        hide("status");
+        show("form");
     };
   
     ws.onmessage = function(e)
@@ -136,10 +200,11 @@ function connect()
             case "login-accepted":
                 id = msg.data;
                 timer = setInterval(sendGeo, 2000);
+                getFriendsList();
                 setText("client-id", id);
                 hide("form");
                 show("status");
-                show("clients");
+                show("friends");
                 break;
 
             case "login-denied":
@@ -154,13 +219,35 @@ function connect()
                 setText("form-prompt", "Username " + msg.data + " already taken.");
                 break;
 
-            case "clients-list":
-                setText("clients-list", "");
-                clients = msg.data;
-                clients.forEach(client => {
-                    if (client != id)
-                        addListItem("clients-list", client, requestConnection.bind(this, client));
+            case "friends-list":
+                setText("friends-list", "");
+                setText("friends-outgoing", "");
+                setText("friends-incoming", "");
+
+                friendsList = msg.data.friendsList;
+                friendsList.forEach(friend => 
+                {
+                    addListItem("friends-list", friend);
                 });
+
+                requestsOutgoing = msg.data.requestsOutgoing;
+                requestsOutgoing.forEach(request => 
+                {
+                    addListItem("friends-outgoing", request);
+                });
+
+                requestsIncoming = msg.data.requestsIncoming;
+                requestsIncoming.forEach(request => 
+                {
+                    addListItem("friends-incoming", request);
+                });
+                break;
+
+            case "friends-requested":
+            case "friend-request-cancelled":
+            case "friends-accepted":
+            case "friends-removed":
+                sendMessage("get-friends-list", "");
                 break;
             
             case "connection-requested":
@@ -170,20 +257,37 @@ function connect()
                 break;
 
             case "connection-request-cancelled":
-                requester = null;
-                hide("request");
+                if (msg.data == requester)
+                {
+                    requester = null;
+                    hide("request");
+                }
+                else
+                    setText(msg.data, msg.data);
+                sendMessage("get-friends-list", "");
                 break;
 
             case "connection-allowed":
                 connectedClient = msg.data;
+                requester = null;
+                requested = null;
                 setText("connection-id", connectedClient);
-                hide("clients");
+                hide("friends");
                 hide("request");
                 show("connection");
                 break;
 
             case "connection-denied":
-                setText(msg.data, msg.data + " - request denied");
+                if (msg.data == requester)
+                {   
+                    requester = null;    
+                    hide("request");
+                }
+                else if (msg.data == requested)
+                {   
+                    requested = null;
+                    setText(msg.data, msg.data + " - request denied");
+                }
                 break;
 
             case "connection-unavailable":
@@ -194,8 +298,11 @@ function connect()
                 if (msg.data == connectedClient)
                 {
                     connectedClient = null;
-                    setText("clients-list", "");
-                    show("clients");
+                    setText("friends-list", "");
+                    setText("friends-outgoing", "");
+                    setText("friends-incoming", "");
+                    getFriendsList();
+                    show("friends");
                     hide("connection");
                 }
                 break;
@@ -216,7 +323,8 @@ function connect()
         ws = null;
         clearInterval(timer);
         setText("server", "disconnected, trying to reconnect");
-        hide("clients");
+        hide("status");
+        hide("friends");
         hide("request");
         hide("connection");
         setTimeout(connect, 1000);
@@ -225,8 +333,8 @@ function connect()
 
 var ws = null;
 
-var clients = [];
 var requester = null;
+var requested = null;
 var connectedClient = null;
 
 var id = uuidv4();
@@ -238,7 +346,8 @@ setInterval(refreshGeo, 2000);
     
 clickListener("login", requestLogin); 
 clickListener("register", requestRegister);
-clickListener("clients-update", requestClients); 
+clickListener("friends-add", addFriend);
+clickListener("friends-update", getFriendsList); 
 clickListener("request-allow", allowConnection);
 clickListener("request-deny", denyConnection);
 clickListener("connection-close", closeConnection);
