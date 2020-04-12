@@ -10,6 +10,17 @@ var clients = [];
 var requests = [];
 var connections = [];
 
+function print()
+{
+    console.clear();
+    console.log("Connected clients");
+    console.table(clients);
+    console.log("Connection requests");
+    console.table(requests);
+    console.log("Active connections");
+    console.table(connections);
+}
+
 function sendMessage(ws, channel, data)
 {
     if (ws)
@@ -59,120 +70,174 @@ app.ws('/', function(ws, req)
         switch (msg.channel)
         {
             case "request-login":
-                fs.readFile("./users.json", (err, data) => {
+                fs.readFile("./users.json", (err, data) =>
+                {
                     if (err)
-                    { 
-                        console.log(err);
-                        sendMessage(ws, "server-error", "");
+                        return console.error(err);
+                    
+                    var username = msg.data.username;
+                    var password = msg.data.password;
+                    var users = JSON.parse(data);
+                    bcrypt.compare(password, users[username], (err, result) =>
+                    {
+                        if (err) 
+                            return console.error(err);
+                        
+                        if (result)
+                            sendMessage(ws, "login-accepted", username);
+                        else
+                            sendMessage(ws, "login-denied", username);
+                    });
+                });
+                break;
+
+            case "request-register":
+                fs.readFile("./users.json", (err, data) =>
+                {
+                    if (err) 
+                        return console.error(err);
+                    
+                    var username = msg.data.username;
+                    var password = msg.data.password;
+                    var users = JSON.parse(data);
+                    if (!users[username])
+                    {
+                        bcrypt.hash(password, saltRounds, (err, hash) =>
+                        {
+                            if (err)
+                                return console.error(err);
+
+                            users[username] = hash;
+                            var usersData = JSON.stringify(users);
+                            fs.writeFile("./users.json", usersData, (err) =>
+                            {
+                                if (err)
+                                    return console.error(err);
+                                
+                                sendMessage(ws, "register-accepted", username);
+                            });
+                        });
                     }
                     else
+                        sendMessage(ws, "register-denied", username);
+                });
+                break;
+
+            case "request-friend":
+                fs.readFile("./friends.json", (err, data) =>
+                {
+                    if (err) 
+                        return console.error(err);
+                    
+                    var friends = JSON.parse(data);
+                    if (!friends[msg.id].includes(msg.data))
                     {
-                        var username = msg.data.username;
-                        var password = msg.data.password;
-                        var users = JSON.parse(data);
-                        bcrypt.compare(password, users[username], (err, result) => {
-                            if (err)
-                            { 
-                                console.log(err);
-                                sendMessage(ws, "server-error", "");
+                        fs.readFile("./friend-requests.json", (err, data) =>
+                        {
+                            if (err) 
+                                return console.error(err);
+                            
+                            var alreadyRequested = false;
+                            var index = -1;
+                            var friendRequests = JSON.parse(data);
+                            for (var i = 0; i < friendRequests.length; i++)
+                            {
+                                if (friendRequests[i].requester == msg.id && friendRequests[i].responder == msg.data)
+                                {
+                                    alreadyRequested = true;
+                                    break;
+                                }
+                                else if (friendRequests[i].requester == msg.data && friendRequests[i].responder == msg.id)
+                                {
+                                    index = i;
+                                    break;
+                                }
                             }
-                            else
-                                if (result)
-                                    sendMessage(ws, "login-accepted", username);
+
+                            if (!alreadyRequested)
+                            {
+                                if (index > -1)
+                                {
+                                    friends[msg.id].push(msg.data);
+                                    friends[msg.data].push(msg.id);
+                                    friendRequests.splice(index, 1);
+    
+                                    fs.writeFile("./friends.json", JSON.stringify(friends), (err) =>
+                                    {
+                                        if (err) 
+                                            return console.error(err);
+                                        
+                                        fs.writeFile("./friend-requests.json", JSON.stringify(friendRequests), (err) =>
+                                        {
+                                            if (err) 
+                                                return console.error(err);
+    
+                                            sendMessage(ws, "friends-accepted", msg.data);
+                                            sendMessage(sockets[msg.data], "friends-accepted", msg.id);
+                                        }); 
+                                    });
+                                }
                                 else
-                                    sendMessage(ws, "login-denied", username);
+                                {
+                                    friendRequests.push({ requester: msg.id, responder: msg.data });
+
+                                    fs.writeFile("./friend-requests.json", JSON.stringify(friendRequests), (err) =>
+                                    {
+                                        if (err) 
+                                            return console.error(err);
+                                        
+                                        sendMessage(ws, "friends-requested", msg.data);
+                                        sendMessage(sockets[msg.data], "friends-requested", msg.id);
+                                    }); 
+                                }
+                            }
                         });
                     }
                 });
                 break;
 
-            case "request-register":
-                fs.readFile("./users.json", (err, data) => {
+            case "cancel-friend-request":
+                fs.readFile("./friend-requests.json", (err, data) =>
+                {
                     if (err) 
-                        console.log(err);
-                    else
+                        return console.error(err);
+                    
+                    var index = -1;
+                    var friendRequests = JSON.parse(data);
+                    for (var i = 0; i < friendRequests.length; i++)
                     {
-                        var username = msg.data.username;
-                        var password = msg.data.password;
-                        var users = JSON.parse(data);
-                        if (!users[username])
+                        if ((friendRequests[i].requester == msg.id && friendRequests[i].responder == msg.data) ||
+                            (friendRequests[i].requester == msg.data && friendRequests[i].responder == msg.id))
                         {
-                            bcrypt.hash(password, saltRounds, (err, hash) => {
-                                if (err)
-                                { 
-                                    console.log(err);
-                                    sendMessage(ws, "server-error", "");
-                                }
-                                else
-                                {
-                                    users[username] = hash;
-                                    var data = JSON.stringify(users);
-                                    fs.writeFile("./users.json", data, (err) => {
-                                        if (err)
-                                        { 
-                                            console.log(err);
-                                            sendMessage(ws, "server-error", "");
-                                        }
-                                        else
-                                            sendMessage(ws, "register-accepted", username);
-                                    });
-                                }
-                            });
+                            index = i;
+                            break;
                         }
-                        else
-                            sendMessage(ws, "register-denied", username);
+                    }
+
+                    if (index > -1)
+                    {
+                        friendRequests.splice(index, 1);
+
+                        fs.writeFile("./friend-requests.json", JSON.stringify(friendRequests), (err) =>
+                        {
+                            if (err) 
+                                return console.error(err);
+                            
+                            sendMessage(ws, "friends-request-cancelled", msg.data);
+                            sendMessage(sockets[msg.data], "friends-request-cancelled", msg.id);
+                        }); 
                     }
                 });
                 break;
-
-            case "add-friend":
-                fs.readFile("./friends.json", (err, data) => {
-                    if (err) 
-                        console.log(err);
-                    else
-                    {
-                        var friends = JSON.parse(data);
-                        if (friends[msg.id].includes(msg.data))
-                            sendMessage(ws, "already-friends", msg.data);
-                        else
-                            sendMessage(sockets[msg.data], "friends-requested", msg.id);
-                    }
-                })
-                break;
-
-            case "accept-friend":
-                fs.readFile("./friends.json", (err, data) => {
-                    if (err) 
-                        console.log(err);
-                    else
-                    {
-                        var friends = JSON.parse(data);
-                        if (!friends[msg.id].includes(msg.data))
-                        {
-                            friends[msg.id].push(msg.data);
-                            friends[msg.id].sort();
-                        }
-                        if (!friends[msg.data].includes(msg.id))
-                        {
-                            friends[msg.data].push(msg.id);
-                            friends[msg.data].sort();
-                        }
-                        sendMessage(sockets[msg.data], "friends-accepted", msg.id);
-                    }
-                })
-                break;
-
-            case "decline-friend":
-                sendMessage(sockets[msg.data], "friends-declined", msg.id);
-                break;
             
             case "remove-friend":
-                fs.readFile("./friends.json", (err, data) => {
-                if (err) 
-                    console.log(err);
-                else
+                fs.readFile("./friends.json", (err, data) =>
                 {
+                    if (err) 
+                        return console.error(err);
+                    
                     var friends = JSON.parse(data);
+
                     var index = friends[msg.id].indexOf(msg.data);
                     if (index > -1)
                         friends[msg.id].splice(index, 1);
@@ -181,11 +246,15 @@ app.ws('/', function(ws, req)
                     if (index > -1)
                         friends[msg.data].splice(index, 1);
 
-                    sendMessage(ws, "friends-removed", msg.data);
-                    sendMessage(sockets[msg.data], "friends-removed", msg.id);
-                }
-            })
-
+                    fs.writeFile("./friends.json", JSON.stringify(friends), (err) =>
+                    {
+                        if (err) 
+                            return console.error(err);
+                        
+                        sendMessage(ws, "friend-removed", msg.data);
+                        sendMessage(sockets[msg.data], "friend-removed", msg.id);
+                    });
+                });
                 break;
 
             case "request-clients":
@@ -199,28 +268,39 @@ app.ws('/', function(ws, req)
             case "request-connection":
                 var requester = msg.id;
                 var responder = msg.data;
-                if (sockets[responder] && clients[responder] && clients[responder].connected == false)
+
+                fs.readFile("./friends.json", (err, data) =>
                 {
-                    sendMessage(sockets[responder], "connection-requested", requester);
-                    requests[requester] = responder;
-                }
-                else
-                    sendMessage(ws, "connection-unavailable", responder);
+                    if (err) 
+                        return console.error(err);
+
+                    var friends = JSON.parse(data);
+                    if (friends[requester].includes(responder) &&
+                        sockets[responder] && clients[responder] && 
+                        clients[responder].connected == false)
+                    {
+                        sendMessage(sockets[responder], "connection-requested", requester);
+                        requests[requester] = responder;
+                    }
+                    else
+                        sendMessage(ws, "connection-unavailable", responder);
+                });
                 break;
 
             case "allow-connection":
                 var requester = msg.data;
                 var responder = msg.id;
+
                 if (requests[requester] == responder)
                 {
                     if (sockets[requester])
                     {
-                        sendMessage(ws, "connection-allowed", requester);
-                        sendMessage(sockets[requester], "connection-allowed", responder);
-                        delete requests[requester];
                         connections[requester] = responder;
                         clients[requester].connected = true;
                         clients[responder].connected = true;
+                        delete requests[requester];
+                        sendMessage(ws, "connection-allowed", requester);
+                        sendMessage(sockets[requester], "connection-allowed", responder);
                     }
                 }
                 else
@@ -305,17 +385,6 @@ app.ws('/', function(ws, req)
                 }
     });
 });
-
-function print()
-{
-    console.clear();
-    console.log("Connected clients");
-    console.table(clients);
-    console.log("Connection requests");
-    console.table(requests);
-    console.log("Active connections");
-    console.table(connections);
-}
 
 setInterval(print, 1000);
 setInterval(serveConnections, 2000);
