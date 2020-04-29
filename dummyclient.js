@@ -97,7 +97,7 @@ function refreshGeo()
 
 function sendMessage(channel, data)
 {
-    var msg = { id: id, channel: channel, data: data };
+    var msg = { token: accessToken, channel: channel, data: data };
     ws.send(JSON.stringify(msg));
 }
 
@@ -108,6 +108,7 @@ function requestLogin()
     var password = document.getElementById("password").value;
     var msg = { username: username, password: password };
     sendMessage("request-login", msg);
+    var id = username;
 }
 
 function requestRegister()
@@ -178,7 +179,7 @@ function connect()
 {
     // https://stackoverflow.com/questions/22431751/websocket-how-to-automatically-reconnect-after-it-dies
 
-    ws = new WebSocket("ws://localhost:3000");
+    ws = new WebSocket("ws://localhost:8080");
     var timer = null;
 
     ws.onopen = function() 
@@ -194,11 +195,21 @@ function connect()
     ws.onmessage = function(e)
     {
         var msg = JSON.parse(e.data);
+        console.log(msg);
 
         switch (msg.channel)
         {
+            case "register-accepted":
+                setText("form-prompt", "Account " + msg.data + " created! You may now log in.");
+                break;
+
+            case "register-denied":
+                setText("form-prompt", "Username " + msg.data + " already taken.");
+                break;
+                
             case "login-accepted":
-                id = msg.data;
+                accessToken = msg.data.accessToken;
+                refreshToken = msg.data.refreshToken;
                 timer = setInterval(sendGeo, 2000);
                 getFriendsList();
                 setText("client-id", id);
@@ -211,12 +222,13 @@ function connect()
                 setText("form-prompt", "Wrong credentials!");
                 break;
 
-            case "register-accepted":
-                setText("form-prompt", "Account " + msg.data + " created! You may now log in.");
+            case "authenticated":
+                accessToken = msg.data.accessToken;
+                refreshToken = msg.data.refreshToken;
                 break;
 
-            case "register-denied":
-                setText("form-prompt", "Username " + msg.data + " already taken.");
+            case "unauthenticated":
+                sendMessage("authenticate", refreshToken);
                 break;
 
             case "friends-list":
@@ -332,6 +344,8 @@ function connect()
 }
 
 var ws = null;
+var accessToken = "";
+var refreshToken = "";
 
 var requester = null;
 var requested = null;

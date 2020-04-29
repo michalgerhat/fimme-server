@@ -1,11 +1,11 @@
-var express = require('express');
-var app = express();
-var expressWs = require('express-ws')(app);
+const WebSocket = require('ws');
+const wss = new WebSocket.Server({ port: 8080 });
 
-const { Database } = require('./db');
-const dbSchema = require('./db-create');
-const dbPath = './fimme.db';
-var db = new Database(dbPath, dbSchema);
+const Database = require('./db');
+const db = new Database();
+
+const Authenticator = require('./auth');
+const auth = new Authenticator();
 
 var sockets = {};
 var clients = {};
@@ -51,241 +51,265 @@ function serveConnections()
         }
     }
 }
- 
-app.use(function(req, res, next)
+
+wss.on("connection", (ws) => 
 {
-    return next();
-});
- 
-app.get('/', function(req, res, next)
-{
-    res.end();
-});
- 
-app.ws('/', function(ws, req)
-{
-    ws.on('message', function(msg)
+    ws.on("message", (msg) =>
     {
         msg = JSON.parse(msg);
-        req.id = msg.id;
 
-        switch (msg.channel)
+        auth.check(msg.token, (data) => 
         {
-            case "request-register":
-                var username = msg.data.username;
-                var password = msg.data.password;
+            if (data)
+            {
+                ws.id = data.name;
 
-                db.registerUser(username, password, (res) => 
+                switch (msg.channel)
                 {
-                    res ?
-                        sendMessage(ws, "register-accepted", username)
-                    :
-                        sendMessage(ws, "register-denied", username);
-                });
-                break;
-                
-            case "request-login":
-                var username = msg.data.username;
-                var password = msg.data.password;
-
-                db.verifyUser(username, password, (res) =>
-                {
-                    res ?
-                        sendMessage(ws, "login-accepted", username)
-                    :
-                        sendMessage(ws, "login-denied", username);
-                });
-                break;
-
-            case "request-friend":
-                var requester = msg.id;
-                var responder = msg.data;
-
-                db.requestFriend(requester, responder, (res) => 
-                {
-                    switch (res)
-                    {
-                        case 0:
-                            sendMessage(ws, "friends-requested", responder);
-                            sendMessage(sockets[responder], "friends-requested", requester);
-                            break;
-                        case 1:
-                            sendMessage(ws, "friends-accepted", responder.data);
-                            sendMessage(sockets[responder], "friends-accepted", requester);
-                            break;
-                    }
-                });
-                break;
-
-            case "cancel-friend-request":
-                var requester = msg.id;
-                var responder = msg.data;
-                
-                db.cancelRequest(requester, responder, (res) => 
-                {
-                    if (res)
-                    {
-                        sendMessage(ws, "friend-request-cancelled", responder);
-                        sendMessage(sockets[responder], "friend-request-cancelled", requester);
-                    }
-                });
-
-                break;
-            
-            case "remove-friend":
-                var username = msg.id;
-                var friend = msg.data;
-
-                db.removeFriend(username, friend, (res) => 
-                {
-                    if (res)
-                    {
-                        sendMessage(ws, "friends-removed", responder);
-                        sendMessage(sockets[responder], "friends-removed", requester);
-                    }
-                });
-                break;
-
-            case "get-friends-list":
-                var username = msg.id;
-                
-                db.getFriendsList(username, (res) => 
-                {
-                    if (res)
-                    {
-                        var friendsList = [];
-                        res.friendsList.forEach((friend) => 
+                    case "request-friend":
+                        var requester = ws.id;
+                        var responder = msg.data;
+    
+                        db.requestFriend(requester, responder, (res) => 
                         {
-                            if (clients[friend] && clients[friend].connected == false)
-                                friendsList.push({ id: friend, available: true });
-                            else
-                                friendsList.push({ id: friend, available: false });
+                            switch (res)
+                            {
+                                case 0:
+                                    sendMessage(ws, "friends-requested", responder);
+                                    sendMessage(sockets[responder], "friends-requested", requester);
+                                    break;
+                                case 1:
+                                    sendMessage(ws, "friends-accepted", responder.data);
+                                    sendMessage(sockets[responder], "friends-accepted", requester);
+                                    break;
+                            }
+                        });
+                        break;
+    
+                    case "cancel-friend-request":
+                        var requester = ws.id;
+                        var responder = msg.data;
+                        
+                        db.cancelRequest(requester, responder, (res) => 
+                        {
+                            if (res)
+                            {
+                                sendMessage(ws, "friend-request-cancelled", responder);
+                                sendMessage(sockets[responder], "friend-request-cancelled", requester);
+                            }
                         });
     
-                        var completeList = { 
-                            friendsList: friendsList, 
-                            requestsOutgoing: res.requestsOutgoing, 
-                            requestsIncoming: res.requestsIncoming
-                        };
-                        sendMessage(ws, "friends-list", completeList);
-                    }
-                });
-                break;
-
-            case "request-connection":
-                var requester = msg.id;
-                var responder = msg.data;
-
-                db.checkFriendship(requester, responder, (res) =>
-                {
-                    if (res && sockets[responder] && clients[responder] && clients[responder].connected == false)
-                    {
-                        if (requests[requester])
+                        break;
+                    
+                    case "remove-friend":
+                        var username = ws.id;
+                        var friend = msg.data;
+    
+                        db.removeFriend(username, friend, (res) => 
                         {
-                            sendMessage(ws, "connection-request-cancelled", requests[requester]);
-                            sendMessage(sockets[requests[requester]], "connection-request-cancelled", requester);
+                            if (res)
+                            {
+                                sendMessage(ws, "friends-removed", responder);
+                                sendMessage(sockets[responder], "friends-removed", requester);
+                            }
+                        });
+                        break;
+    
+                    case "get-friends-list":
+                        var username = ws.id;
+                        
+                        db.getFriendsList(username, (res) => 
+                        {
+                            if (res)
+                            {
+                                var friendsList = [];
+                                res.friendsList.forEach((friend) => 
+                                {
+                                    if (clients[friend] && clients[friend].connected == false)
+                                        friendsList.push({ id: friend, available: true });
+                                    else
+                                        friendsList.push({ id: friend, available: false });
+                                });
+            
+                                var completeList = { 
+                                    friendsList: friendsList, 
+                                    requestsOutgoing: res.requestsOutgoing, 
+                                    requestsIncoming: res.requestsIncoming
+                                };
+                                sendMessage(ws, "friends-list", completeList);
+                            }
+                        });
+                        break;
+    
+                    case "request-connection":
+                        var requester = ws.id;
+                        var responder = msg.data;
+    
+                        db.checkFriendship(requester, responder, (res) =>
+                        {
+                            if (res && sockets[responder] && clients[responder] && clients[responder].connected == false)
+                            {
+                                if (requests[requester])
+                                {
+                                    sendMessage(ws, "connection-request-cancelled", requests[requester]);
+                                    sendMessage(sockets[requests[requester]], "connection-request-cancelled", requester);
+                                }
+                                sendMessage(sockets[responder], "connection-requested", requester);
+                                requests[requester] = responder;
+                            }
+                            else
+                                sendMessage(ws, "connection-unavailable", responder);
+                        });
+                        break;
+    
+                    case "allow-connection":
+                        var requester = msg.data;
+                        var responder = ws.id;
+    
+                        if (requests[requester] == responder)
+                        {
+                            if (sockets[requester])
+                            {
+                                connections[requester] = responder;
+                                clients[requester].connected = true;
+                                clients[responder].connected = true;
+                                delete requests[requester];
+                                sendMessage(ws, "connection-allowed", requester);
+                                sendMessage(sockets[requester], "connection-allowed", responder);
+                            }
                         }
-                        sendMessage(sockets[responder], "connection-requested", requester);
-                        requests[requester] = responder;
-                    }
-                    else
-                        sendMessage(ws, "connection-unavailable", responder);
-                });
-                break;
+                        else
+                        {
+                            sendMessage(ws, "connection-denied", requester);
+                            sendMessage(sockets[requester], "connection-denied", responder);
+                        }
+                        break;
+                        
+                    case "deny-connection":
+                        var requester = msg.data;
+                        var responder = ws.id;
+                        if (requests[requester] == responder)
+                        {
+                            sendMessage(ws, "connection-denied", requester);
+                            sendMessage(sockets[requester], "connection-denied", responder);
+                            delete requests[requester];
+                        }
+                        break;
+    
+                    case "close-connection":
+                        if (connections[ws.id] == msg.data)
+                        {
+                            sendMessage(ws, "connection-closed", msg.data);
+                            clients[ws.id].connected = false;
+                            delete connections[ws.id];
+                            sendMessage(sockets[msg.data], "connection-closed", ws.id);
+                            clients[msg.data].connected = false;
+                        }
+                        else if (connections[msg.data] == ws.id)
+                        {
+                            sendMessage(ws, "connection-closed", msg.data);
+                            clients[ws.id].connected = false;
+                            delete connections[msg.data];
+                            sendMessage(sockets[msg.data], "connection-closed", ws.id);
+                            clients[msg.data].connected = false;
+                        }
+                        break;
+    
+                    case "geo-update":
+                        var geo = msg.data;
+                        var connected = false;
+                        if (clients[ws.id])
+                            connected = clients[ws.id].connected;
+                        clients[ws.id] = { lat: geo.lat, lon: geo.lon, alt: geo.alt, connected: connected };
+                        sockets[ws.id] = ws;
+                        break;
+                }
+            }
+            else
+            {
+                switch (msg.channel)
+                {
+                    case "request-register":
+                        var username = msg.data.username;
+                        var password = msg.data.password;
 
-            case "allow-connection":
-                var requester = msg.data;
-                var responder = msg.id;
+                        db.registerUser(username, password, (res) => 
+                        {
+                            if (res)
+                                sendMessage(ws, "register-accepted", username);
+                            else
+                                sendMessage(ws, "register-denied", username);
+                        });
+                        break;
+                        
+                    case "request-login":
+                        var username = msg.data.username;
+                        var password = msg.data.password;
 
-                if (requests[requester] == responder)
-                {
-                    if (sockets[requester])
-                    {
-                        connections[requester] = responder;
-                        clients[requester].connected = true;
-                        clients[responder].connected = true;
-                        delete requests[requester];
-                        sendMessage(ws, "connection-allowed", requester);
-                        sendMessage(sockets[requester], "connection-allowed", responder);
-                    }
-                }
-                else
-                {
-                    sendMessage(ws, "connection-denied", requester);
-                    sendMessage(sockets[requester], "connection-denied", responder);
-                }
-                break;
-                
-            case "deny-connection":
-                var requester = msg.data;
-                var responder = msg.id;
-                if (requests[requester] == responder)
-                {
-                    sendMessage(ws, "connection-denied", requester);
-                    sendMessage(sockets[requester], "connection-denied", responder);
-                    delete requests[requester];
-                }
-                break;
+                        db.verifyUser(username, password, (res) =>
+                        {
+                            if (res)
+                            {
+                                auth.authenticate({ name: username }, (tokens) =>
+                                {
+                                    sendMessage(ws, "login-accepted", tokens);
+                                });
+                            }
+                            else
+                                sendMessage(ws, "login-denied", username);
+                        });
+                        break;
+                    
+                    case "authenticate":
+                        auth.refresh(msg.data, (res) =>
+                        {
+                            if (res)
+                                sendMessage(ws, "authenticated", res);
+                            else
+                            {
+                                sendMessage(ws, "unauthenticated", "");
+                                ws.close();
+                            }
+                        });
+                        break;
 
-            case "close-connection":
-                if (connections[msg.id] == msg.data)
-                {
-                    sendMessage(ws, "connection-closed", msg.data);
-                    clients[msg.id].connected = false;
-                    delete connections[msg.id];
-                    sendMessage(sockets[msg.data], "connection-closed", msg.id);
-                    clients[msg.data].connected = false;
+                    default:
+                        sendMessage(ws, "unauthenticated", "");
+                        break;
                 }
-                else if (connections[msg.data] == msg.id)
-                {
-                    sendMessage(ws, "connection-closed", msg.data);
-                    clients[msg.id].connected = false;
-                    delete connections[msg.data];
-                    sendMessage(sockets[msg.data], "connection-closed", msg.id);
-                    clients[msg.data].connected = false;
-                }
-                break;
-
-            case "geo-update":
-                var geo = msg.data;
-                var connected = false;
-                if (clients[msg.id])
-                    connected = clients[msg.id].connected;
-                clients[msg.id] = { lat: geo.lat, lon: geo.lon, alt: geo.alt, connected: connected };
-                sockets[msg.id] = ws;
-                break;
-        }
+            }
+        });
     });
 
-    ws.on('close', function()
+    ws.on('close', () =>
     {
-        delete sockets[req.id];
-        delete clients[req.id];
+        delete sockets[ws.id];
+        delete clients[ws.id];
 
-        if (requests[req.id])
+        if (requests[ws.id])
         {
-            sendMessage(sockets[requests[req.id]], "connection-request-cancelled", req.id);
-            delete requests[req.id];
+            sendMessage(sockets[requests[ws.id]], "connection-request-cancelled", ws.id);
+            delete requests[ws.id];
         }
         else
             for (index in requests)
-                if (requests[index] == req.id)
+                if (requests[index] == ws.id)
                 {
-                    sendMessage(sockets[index], "connection-unavailable", req.id);
+                    sendMessage(sockets[index], "connection-unavailable", ws.id);
                     delete requests[index];
                 }
 
-        if (connections[req.id])
+        if (connections[ws.id])
         {
-            sendMessage(sockets[connections[req.id]], "connection-closed", req.id);
-            clients[connections[req.id]].connected = false;
-            delete connections[req.id];
+            sendMessage(sockets[connections[ws.id]], "connection-closed", ws.id);
+            clients[connections[ws.id]].connected = false;
+            delete connections[ws.id];
         }
         else
             for (index in connections)
-                if (connections[index] == req.id)
+                if (connections[index] == ws.id)
                 {
-                    sendMessage(sockets[index], "connection-closed", req.id);
+                    sendMessage(sockets[index], "connection-closed", ws.id);
                     clients[index].connected = false;
                     delete connections[index];
                 }
@@ -294,4 +318,3 @@ app.ws('/', function(ws, req)
 
 setInterval(print, 1000);
 setInterval(serveConnections, 2000);
-app.listen(3000);
