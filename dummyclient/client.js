@@ -108,7 +108,7 @@ function requestLogin()
     var password = document.getElementById("password").value;
     var msg = { username: username, password: password };
     sendMessage("request-login", msg);
-    var id = username;
+    id = username;
 }
 
 function requestRegister()
