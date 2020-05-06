@@ -1,6 +1,6 @@
 # Fimme-server
 
-Server for the location sharing app [Fimme](https://github.com/michalgerhat/fimme/wiki). Allows a pair of users to establish connection and exchange their coordinates, so their client apps can navigate towards each other.
+Server for the location sharing app [Fimme](https://github.com/michalgerhat/fimme). Allows a pair of users to establish connection and exchange their coordinates, so their client apps can navigate towards each other.
 
 ## Usage
 
