@@ -30,4 +30,14 @@ module.exports = `
             REFERENCES users (username)
                 ON UPDATE CASCADE
                 ON DELETE CASCADE
+    );
+    
+    CREATE TABLE IF NOT EXISTS connections (
+        timestamp INTEGER NOT NULL,
+        a_lat REAL NOT NULL,
+        a_lon REAL NOT NULL,
+        a_alt REAL NOT NULL,
+        b_lat REAL NOT NULL,
+        b_lon REAL NOT NULL,
+        b_alt REAL NOT NULL
     );`

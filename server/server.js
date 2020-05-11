@@ -165,6 +165,9 @@ wss.on("connection", (ws) =>
                     case "allow-connection":
                         var requester = msg.data;
                         var responder = ws.id;
+
+                        var locationReq = { lat: clients[requester].lat, lon: clients[requester].lat, alt: clients[requester].lat };
+                        var locationRes = { lat: clients[responder].lat, lon: clients[responder].lat, alt: clients[responder].lat };
     
                         if (requests[requester] == responder)
                         {
@@ -176,6 +179,7 @@ wss.on("connection", (ws) =>
                                 delete requests[requester];
                                 sendMessage(ws, "connection-allowed", requester);
                                 sendMessage(sockets[requester], "connection-allowed", responder);
+                                db.logConnection(locationReq, locationRes, (res) => {});
                             }
                         }
                         else

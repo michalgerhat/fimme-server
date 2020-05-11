@@ -182,6 +182,16 @@ class Database
             (err || !row) ? _callback(false) : _callback(true);
         });
     }
+
+    logConnection(a, b, _callback)
+    {
+        const insertConnection = "INSERT INTO connections (timestamp, a_lat, a_lon, a_alt, b_lat, b_lon, b_alt) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        var timestamp = Math.floor(new Date() / 1000);
+        this.db.run(insertConnection, [timestamp, a.lat, a.lon, a.alt, b.lat, b.lon, b.alt], (err) =>
+        {
+            err ? _callback(-1) : _callback(1);
+        });  
+    }
 }
 
 module.exports = Database;
