@@ -243,16 +243,16 @@ wss.on("connection", (ws) =>
                         break;
 
                     case "change-password":
-                        db.changePassword(msg.data.username, msg.data.password, (res) => {
+                        db.changePassword(msg.data.username, msg.data.password, (res) => 
+                        {
                             if (res)
                                 sendMessage(ws, "password-changed", msg.data.username);
                         });
                         break;
 
                     case "remove-user":
-                        console.log("remove " + msg.data);
-                        db.removeUser(msg.data, (res) => {
-                            console.log(res);
+                        db.removeUser(msg.data, (res) => 
+                        {
                             if (res)
                                 sendMessage(ws, "user-removed", msg.data);
                         });
@@ -323,7 +323,7 @@ wss.on("connection", (ws) =>
                             if (res)
                                 sendMessage(ws, "authenticated", res);
                             else
-                                sendMessage(ws, "unauthenticated", "");
+                                sendMessage(ws, "unauthenticated", { channel: msg.channel, data: msg.data });
                         });
                         break;
 

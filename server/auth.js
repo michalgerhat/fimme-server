@@ -43,7 +43,7 @@ class Authenticator
                 _callback(null);
             
             this.invalidate(token);
-            this.authenticate(data, _callback);
+            return this.authenticate(data, _callback);
         });
     }
 
