@@ -6,7 +6,9 @@ module.exports = `
         ("user3", "$2b$10$XJtFFKCWUJACg.QBYWGjduyVIM5Kn1S8Yq3/OhWH8YXet0gQtEu8W"),
         ("user4", "$2b$10$l1YZWxtyDWFLBitS3IuE/.0QMasMSML5BwhsQI/IBoxn3qRlh98.G"),
         ("user5", "$2b$10$EI0UHkH58dRy7UCTI1Eec.oK6zHJlzCFrTmMgznRusvlYBWXHBCQe"),
-        ("user6", "$2b$10$Eox4lWsTC3sVEcUBv5kMaeD3O8snpNuQ3jBdqOggDO8fwLCE/m0iK");
+        ("user6", "$2b$10$Eox4lWsTC3sVEcUBv5kMaeD3O8snpNuQ3jBdqOggDO8fwLCE/m0iK"),
+        ("user7", "$2b$10$ZvZyjvyLaWli29snForiVemOatUOGrFcTyYoUcUETqCXFJ6H8TDQ6"),
+        ("user8", "$2b$10$iGaseUi8eY2ihlm0jvEIlO2OIJkNJvg3xnNVVx01hv/LY1sDIpXA.");
 
     INSERT INTO friendships (username, friend)
     VALUES
@@ -29,4 +31,8 @@ module.exports = `
 
     INSERT INTO friendship_requests (requester, responder)
     VALUES
-        ("user6", "user2");`
+        ("user6", "user2");
+        
+    INSERT INTO administrators (username, password)
+    VALUES
+        ("admin", "$2b$10$iGaseUi8eY2ihlm0jvEIlO2OIJkNJvg3xnNVVx01hv/LY1sDIpXA.");`

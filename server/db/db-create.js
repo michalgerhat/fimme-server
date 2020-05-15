@@ -40,4 +40,9 @@ module.exports = `
         b_lat REAL NOT NULL,
         b_lon REAL NOT NULL,
         b_alt REAL NOT NULL
+    );
+    
+    CREATE TABLE IF NOT EXISTS administrators (
+        username TEXT PRIMARY KEY,
+        password TEXT NOT NULL
     );`

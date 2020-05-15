@@ -33,7 +33,7 @@ class Database
     {
         bcrypt.hash(password, saltRounds, (err, hash) =>
         {                
-            if (err || !row) 
+            if (err) 
                 return _callback(false);
 
             const insertUser = "INSERT INTO users (username, password) VALUES (?, ?)";
@@ -47,14 +47,29 @@ class Database
     verifyUser(username, password, _callback)
     {
         const selectUsers = "SELECT * FROM users WHERE username = ?";
-        this.db.get(selectUsers, username, (err, row) =>
+        this.db.get(selectUsers, [username], (err, row) =>
         {
             if (err || !row) 
                 return _callback(false);
-
+            
             bcrypt.compare(password, row.password, (err, res) =>
             {
-                err ? _callback(false) : _callback(res);
+                return err ? _callback(false) : _callback(res);
+            });
+        });
+    }
+
+    verifyAdmin(username, password, _callback)
+    {
+        const selectAdmins = "SELECT * FROM administrators WHERE username = ?";
+        this.db.get(selectAdmins, [username], (err, row) =>
+        {
+            if (err || !row) 
+                return _callback(false);
+            
+            bcrypt.compare(password, row.password, (err, res) =>
+            {
+                return err ? _callback(false) : _callback(res);
             });
         });
     }
@@ -140,7 +155,7 @@ class Database
         var requestsIncoming = [];
 
         const selectFriendsList = "SELECT friend FROM friendships WHERE username = ?";
-        this.db.all(selectFriendsList, username, (err, rows) =>
+        this.db.all(selectFriendsList, [username], (err, rows) =>
         {
             if (err)
                 return _callback(null);
@@ -148,7 +163,7 @@ class Database
             rows.forEach((row) => { friendsList.push(row.friend) });
                 
             const selectRequestsOutgoing = "SELECT responder FROM friendship_requests WHERE requester = ?";
-            this.db.all(selectRequestsOutgoing, username, (err, rows) =>
+            this.db.all(selectRequestsOutgoing, [username], (err, rows) =>
             {
                 if (err)
                     return _callback(null);
@@ -156,7 +171,7 @@ class Database
                 rows.forEach((row) => { requestsOutgoing.push(row.responder) });
 
                 const selectRequestsIncoming = "SELECT requester FROM friendship_requests WHERE responder = ?";
-                this.db.all(selectRequestsIncoming, username, (err, rows) =>
+                this.db.all(selectRequestsIncoming, [username], (err, rows) =>
                 {
                     if (err)
                         return _callback(null);
@@ -191,6 +206,62 @@ class Database
         {
             err ? _callback(-1) : _callback(1);
         });  
+    }
+
+    changePassword(username, password, _callback)
+    {
+        bcrypt.hash(password, saltRounds, (err, hash) =>
+        {                
+            if (err) 
+                return _callback(false);
+
+            const updateUser = "UPDATE users SET password = ? WHERE username = ?";
+            this.db.run(updateUser, [hash, username], (err) => 
+            {                
+                err ? _callback(false) : _callback(true);
+            });
+        });
+    }
+
+    removeUser(username, _callback)
+    {
+        const deleteRequests = "DELETE FROM friendship_requests WHERE requester = ? OR responder = ?";
+        this.db.run(deleteRequests, [username, username], (err) =>
+        {
+            if (err)  
+                return _callback(false);
+
+            const deleteFriendships = "DELETE FROM friendships WHERE username = ? OR friend = ?";
+            this.db.run(deleteFriendships, [username, username], (err) =>
+            {
+                if (err)  
+                    return _callback(false);
+
+                const deleteUser = "DELETE FROM users WHERE username = ?";
+                this.db.run(deleteUser, [username], (err) =>
+                {
+                    return err ? _callback(false) : _callback(true);
+                });
+            });
+        });
+    }
+
+    getConnections(_callback)
+    {
+        const selectConnections = "SELECT * FROM connections";
+        this.db.all(selectConnections, [], (err, res) =>
+        {
+            return err ? _callback(null) : _callback(res);
+        });
+    }
+
+    getUsers(_callback)
+    {
+        const selectUsers = "SELECT username FROM users";
+        this.db.all(selectUsers, [], (err, res) =>
+        {
+            return err ? _callback(null) : _callback(res);
+        });
     }
 }
 

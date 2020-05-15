@@ -227,6 +227,41 @@ wss.on("connection", (ws) =>
                         clients[ws.id] = { lat: geo.lat, lon: geo.lon, alt: geo.alt, connected: connected };
                         sockets[ws.id] = ws;
                         break;
+
+                    case "fetch-connections":
+                        db.getConnections((res) =>
+                        {
+                            sendMessage(ws, "connections-list", res);
+                        });
+                        break;
+
+                    case "fetch-users":
+                        db.getUsers((res) =>
+                        {
+                            sendMessage(ws, "users-list", res);
+                        });
+                        break;
+
+                    case "change-password":
+                        db.changePassword(msg.data.username, msg.data.password, (res) => {
+                            if (res)
+                                sendMessage(ws, "password-changed", msg.data.username);
+                        });
+                        break;
+
+                    case "remove-user":
+                        console.log("remove " + msg.data);
+                        db.removeUser(msg.data, (res) => {
+                            console.log(res);
+                            if (res)
+                                sendMessage(ws, "user-removed", msg.data);
+                        });
+                        break;
+
+                    case "request-logout":
+                        auth.invalidate(msg.data);
+                        sendMessage(ws, "logged-out", "");
+                        break;
                 }
             }
             else
@@ -263,6 +298,24 @@ wss.on("connection", (ws) =>
                                 sendMessage(ws, "login-denied", username);
                         });
                         break;
+
+                    case "request-admin-login":
+                        var username = msg.data.username;
+                        var password = msg.data.password;
+
+                        db.verifyAdmin(username, password, (res) =>
+                        {
+                            if (res)
+                            {
+                                auth.authenticate({ name: username }, (tokens) =>
+                                {
+                                    sendMessage(ws, "admin-login-accepted", tokens);
+                                });
+                            }
+                            else
+                                sendMessage(ws, "admin-login-denied", username);
+                        });
+                        break;
                     
                     case "authenticate":
                         auth.refresh(msg.data, (res) =>
@@ -275,7 +328,7 @@ wss.on("connection", (ws) =>
                         break;
 
                     default:
-                        sendMessage(ws, "unauthenticated", "");
+                        sendMessage(ws, "unauthenticated", { channel: msg.channel, data: msg.data });
                         break;
                 }
             }
