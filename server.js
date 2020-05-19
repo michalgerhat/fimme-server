@@ -7,6 +7,8 @@ const db = new Database();
 const Authenticator = require('./auth');
 const auth = new Authenticator();
 
+var args = process.argv.slice(2);
+
 var sockets = {};
 var clients = {};
 var requests = {};
@@ -29,6 +31,12 @@ function sendMessage(ws, channel, data)
     {
         var msg = { channel: channel, data: data };
         ws.send(JSON.stringify(msg));
+
+        if (args.includes("verbose"))
+        {
+            console.log(ws.id + ", sent:");
+            console.log(msg);
+        }
     }
 }
 
@@ -57,6 +65,12 @@ wss.on("connection", (ws) =>
     ws.on("message", (msg) =>
     {
         msg = JSON.parse(msg);
+        
+        if (args.includes("verbose"))
+        {
+            console.log(ws.id + ", received:");
+            console.log(msg);
+        }
 
         auth.check(msg.token, (data) => 
         {
@@ -166,8 +180,8 @@ wss.on("connection", (ws) =>
                         var requester = msg.data;
                         var responder = ws.id;
 
-                        var locationReq = { lat: clients[requester].lat, lon: clients[requester].lat, alt: clients[requester].lat };
-                        var locationRes = { lat: clients[responder].lat, lon: clients[responder].lat, alt: clients[responder].lat };
+                        var locationReq = { lat: clients[requester].lat, lon: clients[requester].lon, alt: clients[requester].alt };
+                        var locationRes = { lat: clients[responder].lat, lon: clients[responder].lon, alt: clients[responder].alt };
     
                         if (requests[requester] == responder)
                         {
@@ -370,5 +384,8 @@ wss.on("connection", (ws) =>
     });
 });
 
-setInterval(print, 1000);
+
+if (args.includes("table"))
+    setInterval(print, 1000);
+
 setInterval(serveConnections, 2000);

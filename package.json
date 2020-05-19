@@ -2,7 +2,7 @@
   "name": "fimme-server",
   "version": "1.0.0",
   "description": "Server for the GPS-sharing mobile app Fimme",
-  "main": "./server/server.js",
+  "main": "./server.js",
   "dependencies": {
     "bcrypt": "^4.0.1",
     "dotenv": "^8.2.0",
@@ -13,7 +13,8 @@
   },
   "devDependencies": {},
   "scripts": {
-    "start": "node ./server/server.js",
+    "start": "node ./server.js table",
+    "verbose": "node ./server.js verbose",
     "client": "start chrome ./dummyclient/client.html"
   },
   "repository": {

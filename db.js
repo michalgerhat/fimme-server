@@ -3,7 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const dbSchema = require('./db/db-create');
-const dbPath = './server/db/fimme.db';
+const dbPath = './db/fimme.db';
 
 class Database
 {

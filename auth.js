@@ -1,7 +1,7 @@
 // https://github.com/WebDevSimplified/JWT-Authentication/blob/master/authServer.js
-require('dotenv').config({ path: __dirname+'/.env' });
+require('dotenv').config();
 const jwt = require('jsonwebtoken');
-const exp = '10s';
+const exp = '300s';
 
 class Authenticator
 {
