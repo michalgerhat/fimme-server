@@ -7,6 +7,7 @@ Server for the location sharing app [Fimme](https://github.com/michalgerhat/fimm
 * `npm start` to launch the server, displaying table of client activity on console (uses console.clear()).
 * `npm run verbose` to launch the server, logging all incoming and outgoing messages.
 * `npm run client` to launch an HTML dummy client for testing. Some test logins [here](https://github.com/michalgerhat/fimme-server/blob/master/db/users.txt).
+* Live demo of dummy client [here](https://gerhat.cz/client.html). You can open it in multiple browser tabs and simulate connections.
 
 ## Features
 
