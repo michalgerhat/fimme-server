@@ -9,7 +9,7 @@
     "https": "^1.0.0",
     "jsonwebtoken": "^8.5.1",
     "sqlite3": "^4.2.0",
-    "ws": "^7.2.5"
+    "ws": "^7.4.6"
   },
   "devDependencies": {},
   "scripts": {
