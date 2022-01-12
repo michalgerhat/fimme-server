@@ -2,12 +2,16 @@
 
 Server for the location sharing app [Fimme](https://github.com/michalgerhat/fimme). Allows a pair of users to establish connection and exchange their coordinates, so their client apps can navigate towards each other.
 
+## Demo
+* To test the functionality, you can use a [demo HTML/JS dummy client](https://gerhat.cz/fimme-client).
+* [You can find some test login credentials here](https://github.com/michalgerhat/fimme-server/blob/master/db/users.txt).
+* Open the client in multiple browser tabs, log into each using different credentials and simulate connections.
+
 ## Usage
 
 * `npm start` to launch the server, displaying table of client activity on console (uses console.clear()).
 * `npm run verbose` to launch the server, logging all incoming and outgoing messages.
-* `npm run client` to launch an HTML dummy client for testing. [Some test login credentials here](https://github.com/michalgerhat/fimme-server/blob/master/db/users.txt).
-* [Live demo of dummy client here](https://gerhat.cz/fimme-client). You can open it in multiple browser tabs and simulate connections.
+* `npm run client` to launch an HTML dummy client for testing.
 
 ## Features
 
